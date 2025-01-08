@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Process</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .captcha-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .captcha-input {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 18px;
+            border: 2px solid #ccc;
+        }
+        .captcha-image {
+            width: 50px;
+            height: 50px;
+        }
+        .message {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Verification Process</h1>
+    <div class="captcha-container" id="captchaContainer">
+        <!-- Dynamic content will be added here -->
+    </div>
+    <div class="message" id="message"></div>
+
+    <script>
+        const container = document.getElementById('captchaContainer');
+        const messageDiv = document.getElementById('message');
+
+        async function fetchCaptchaImage(index) {
+            const response = await fetch('/generate', { method: 'POST' });
+            if (response.ok) {
+                const data = await response.json();
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.className = 'captcha-input';
+                input.dataset.index = index;
+
+                const img = document.createElement('img');
+                img.src = data.image_url;
+                img.className = 'captcha-image';
+
+                input.addEventListener('input', async () => {
+                    if (input.value.length === 1) {
+                        if (index < 5) {
+                            fetchCaptchaImage(index + 1);
+                        }
+                        checkVerification();
+                    }
+                });
+
+                const div = document.createElement('div');
+                div.appendChild(img);
+                div.appendChild(input);
+                container.appendChild(div);
+            }
+        }
+
+        async function checkVerification() {
+            const inputs = Array.from(document.querySelectorAll('.captcha-input')).map(input => input.value.toUpperCase());
+            if (inputs.length === 6 && inputs.every(val => val !== '')) {
+                const response = await fetch('/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inputs }),
+                });
+                const data = await response.json();
+                messageDiv.textContent = data.message;
+                if (data.status === 'failure') {
+                    container.innerHTML = '';
+                    fetchCaptchaImage(0);
+                }
+            }
+        }
+
+        // Initialize the first captcha
+        fetchCaptchaImage(0);
+    </script>
+</body>
+</html>
